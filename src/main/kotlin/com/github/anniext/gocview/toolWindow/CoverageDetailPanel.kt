@@ -164,7 +164,7 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
             val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
             
             if (value is String && value.contains(":")) {
-                component.text = "📍 $value"
+                component.text = "$value"
                 component.font = component.font.deriveFont(Font.PLAIN)
             }
             

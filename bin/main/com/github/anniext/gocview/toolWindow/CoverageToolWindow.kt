@@ -37,6 +37,11 @@ class CoverageToolWindow(private val project: Project) {
     private var currentServerUrl: String? = null
     private var currentFileCoverages: List<FileCoverage> = emptyList()
     
+    companion object {
+        // 延迟刷新时间（毫秒）
+        private const val REFRESH_DELAY_MS = 1000L
+    }
+    
     init {
         // 创建表格模型
         tableModel = object : DefaultTableModel(
@@ -116,11 +121,46 @@ class CoverageToolWindow(private val project: Project) {
         currentServerUrl = serverUrl
         
         ApplicationManager.getApplication().invokeLater {
-            statusLabel.text = "Goc Server: $serverUrl"
             refreshButton.isEnabled = true
             
-            // 自动刷新一次
-            refreshCoverageData()
+            // 延迟刷新，给程序时间启动和初始化
+            scheduleDelayedRefresh(REFRESH_DELAY_MS)
+        }
+    }
+    
+    /**
+     * 延迟刷新覆盖率数据（带倒计时显示）
+     */
+    private fun scheduleDelayedRefresh(delayMillis: Long) {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                val startTime = System.currentTimeMillis()
+                val endTime = startTime + delayMillis
+                
+                // 倒计时显示
+                while (System.currentTimeMillis() < endTime) {
+                    val remainingSeconds = ((endTime - System.currentTimeMillis()) / 1000.0).toInt() + 1
+                    
+                    ApplicationManager.getApplication().invokeLater {
+                        statusLabel.text = "Goc Server: $currentServerUrl (${remainingSeconds}秒后自动刷新...)"
+                    }
+                    
+                    Thread.sleep(500) // 每 0.5 秒更新一次
+                }
+                
+                // 在 UI 线程中更新状态并刷新
+                ApplicationManager.getApplication().invokeLater {
+                    if (currentServerUrl != null) {
+                        logger.info("Starting delayed coverage refresh after ${delayMillis}ms")
+                        refreshCoverageData()
+                    }
+                }
+            } catch (e: InterruptedException) {
+                logger.warn("Delayed refresh was interrupted", e)
+                ApplicationManager.getApplication().invokeLater {
+                    statusLabel.text = "Goc Server: $currentServerUrl"
+                }
+            }
         }
     }
     
