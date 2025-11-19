@@ -50,15 +50,20 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
         detailTable = JBTable(tableModel).apply {
             setShowGrid(true)
             autoResizeMode = JTable.AUTO_RESIZE_ALL_COLUMNS
+            rowHeight = 26  // 增加行高
             
             // 设置列宽
             columnModel.getColumn(0).preferredWidth = 120 // 起始位置
             columnModel.getColumn(1).preferredWidth = 120 // 结束位置
             columnModel.getColumn(2).preferredWidth = 80  // 语句数
-            columnModel.getColumn(3).preferredWidth = 80  // 执行次数
+            columnModel.getColumn(3).preferredWidth = 100 // 执行次数
             columnModel.getColumn(4).preferredWidth = 100 // 状态
             
-            // 设置状态列的渲染器
+            // 设置所有列的渲染器
+            columnModel.getColumn(0).cellRenderer = PositionRenderer()
+            columnModel.getColumn(1).cellRenderer = PositionRenderer()
+            columnModel.getColumn(2).cellRenderer = CenterAlignRenderer()
+            columnModel.getColumn(3).cellRenderer = ExecutionCountRenderer()
             columnModel.getColumn(4).cellRenderer = CoverageStatusRenderer()
             
             // 添加双击事件，跳转到代码位置
@@ -141,9 +146,13 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
     }
     
     /**
-     * 覆盖状态渲染器
+     * 位置渲染器
      */
-    private class CoverageStatusRenderer : DefaultTableCellRenderer() {
+    private class PositionRenderer : DefaultTableCellRenderer() {
+        init {
+            horizontalAlignment = SwingConstants.CENTER
+        }
+        
         override fun getTableCellRendererComponent(
             table: JTable?,
             value: Any?,
@@ -152,13 +161,119 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
             row: Int,
             column: Int
         ): Component {
-            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
+            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
+            
+            if (value is String && value.contains(":")) {
+                component.text = "📍 $value"
+                component.font = component.font.deriveFont(Font.PLAIN)
+            }
+            
+            return component
+        }
+    }
+    
+    /**
+     * 居中对齐渲染器
+     */
+    private class CenterAlignRenderer : DefaultTableCellRenderer() {
+        init {
+            horizontalAlignment = SwingConstants.CENTER
+        }
+    }
+    
+    /**
+     * 执行次数渲染器
+     */
+    private class ExecutionCountRenderer : DefaultTableCellRenderer() {
+        init {
+            horizontalAlignment = SwingConstants.CENTER
+        }
+        
+        override fun getTableCellRendererComponent(
+            table: JTable?,
+            value: Any?,
+            isSelected: Boolean,
+            hasFocus: Boolean,
+            row: Int,
+            column: Int
+        ): Component {
+            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
+            
+            if (value is Int || value is String) {
+                val count = value.toString().toIntOrNull() ?: 0
+                
+                // 根据执行次数设置不同的显示样式
+                val displayText = when {
+                    count > 1000 -> "🔥 ${count / 1000}k+"
+                    count > 100 -> "⚡ $count"
+                    count > 0 -> "✓ $count"
+                    else -> "- $count"
+                }
+                
+                component.text = displayText
+                component.font = component.font.deriveFont(Font.BOLD)
+                
+                if (!isSelected) {
+                    component.foreground = when {
+                        count > 100 -> JBColor(java.awt.Color(230, 81, 0), java.awt.Color(255, 167, 38))
+                        count > 0 -> JBColor(java.awt.Color(46, 125, 50), java.awt.Color(129, 199, 132))
+                        else -> JBColor.GRAY
+                    }
+                }
+            }
+            
+            return component
+        }
+    }
+    
+    /**
+     * 覆盖状态渲染器
+     */
+    private class CoverageStatusRenderer : DefaultTableCellRenderer() {
+        init {
+            horizontalAlignment = SwingConstants.CENTER
+            isOpaque = true
+        }
+        
+        override fun getTableCellRendererComponent(
+            table: JTable?,
+            value: Any?,
+            isSelected: Boolean,
+            hasFocus: Boolean,
+            row: Int,
+            column: Int
+        ): Component {
+            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
             
             if (value == "已覆盖") {
-                component.background = JBColor(0xE8F5E9, 0x1B5E20) // 绿色
+                if (!isSelected) {
+                    component.background = JBColor(
+                        java.awt.Color(200, 250, 205),
+                        java.awt.Color(50, 120, 60)
+                    )
+                    component.foreground = JBColor(
+                        java.awt.Color(27, 94, 32),
+                        java.awt.Color(200, 250, 205)
+                    )
+                }
+                component.text = "✓ 已覆盖"
+                component.font = component.font.deriveFont(Font.BOLD)
             } else if (value == "未覆盖") {
-                component.background = JBColor(0xFFCDD2, 0xB71C1C) // 红色
+                if (!isSelected) {
+                    component.background = JBColor(
+                        java.awt.Color(255, 205, 210),
+                        java.awt.Color(183, 28, 28)
+                    )
+                    component.foreground = JBColor(
+                        java.awt.Color(183, 28, 28),
+                        java.awt.Color(255, 205, 210)
+                    )
+                }
+                component.text = "✗ 未覆盖"
+                component.font = component.font.deriveFont(Font.BOLD)
             }
+            
+            component.border = BorderFactory.createEmptyBorder(4, 8, 4, 8)
             
             return component
         }

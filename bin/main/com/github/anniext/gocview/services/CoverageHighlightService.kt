@@ -30,11 +30,17 @@ class CoverageHighlightService(private val project: Project) {
             return project.getService(CoverageHighlightService::class.java)
         }
         
-        // 已覆盖代码的背景色（绿色）
-        private val COVERED_BACKGROUND = JBColor(0xE8F5E9, 0x1B5E20)
+        // 已覆盖代码的背景色（柔和的绿色）
+        private val COVERED_BACKGROUND = JBColor(
+            java.awt.Color(200, 250, 205, 100),  // 浅色主题：半透明浅绿色
+            java.awt.Color(50, 120, 60, 80)      // 深色主题：半透明深绿色
+        )
         
-        // 未覆盖代码的背景色（红色）
-        private val UNCOVERED_BACKGROUND = JBColor(0xFFCDD2, 0xB71C1C)
+        // 已覆盖代码的边框色
+        private val COVERED_BORDER = JBColor(
+            java.awt.Color(100, 200, 110),       // 浅色主题：绿色边框
+            java.awt.Color(80, 180, 90)          // 深色主题：绿色边框
+        )
         
         // 高亮层级
         private const val HIGHLIGHT_LAYER = HighlighterLayer.SELECTION - 1
@@ -51,7 +57,8 @@ class CoverageHighlightService(private val project: Project) {
         val markupModel = editor.markupModel
         val highlighters = mutableListOf<RangeHighlighter>()
         
-        blocks.forEach { block ->
+        // 只高亮已覆盖的代码块
+        blocks.filter { it.isCovered }.forEach { block ->
             try {
                 // 计算起始和结束偏移量
                 val startLine = (block.startLine - 1).coerceAtLeast(0)
@@ -62,20 +69,29 @@ class CoverageHighlightService(private val project: Project) {
                     return@forEach
                 }
                 
-                val startOffset = document.getLineStartOffset(startLine) + (block.startCol - 1).coerceAtLeast(0)
-                val endOffset = document.getLineStartOffset(endLine) + (block.endCol - 1).coerceAtLeast(0)
+                // 精确计算起始和结束偏移量（包含列信息）
+                val lineStartOffset = document.getLineStartOffset(startLine)
+                val lineEndOffset = document.getLineEndOffset(endLine)
                 
-                if (startOffset < 0 || endOffset > document.textLength || startOffset > endOffset) {
+                val startCol = (block.startCol - 1).coerceAtLeast(0)
+                val endCol = (block.endCol - 1).coerceAtLeast(0)
+                
+                val startOffset = (lineStartOffset + startCol).coerceIn(0, document.textLength)
+                val endOffset = (document.getLineStartOffset(endLine) + endCol).coerceIn(0, document.textLength)
+                
+                if (startOffset >= endOffset) {
                     logger.warn("Invalid offset range: $startOffset-$endOffset")
                     return@forEach
                 }
                 
-                // 创建文本属性
+                // 创建文本属性（带背景色和下划线）
                 val textAttributes = TextAttributes().apply {
-                    backgroundColor = if (block.isCovered) COVERED_BACKGROUND else UNCOVERED_BACKGROUND
+                    backgroundColor = COVERED_BACKGROUND
+                    effectColor = COVERED_BORDER
+                    effectType = com.intellij.openapi.editor.markup.EffectType.ROUNDED_BOX
                 }
                 
-                // 添加高亮
+                // 添加高亮（精确范围）
                 val highlighter = markupModel.addRangeHighlighter(
                     startOffset,
                     endOffset,
@@ -123,11 +139,12 @@ class CoverageHighlightService(private val project: Project) {
      */
     private fun buildTooltip(block: CoverageBlock): String {
         return buildString {
-            append("覆盖率信息\n")
-            append("位置: ${block.startLine}:${block.startCol} - ${block.endLine}:${block.endCol}\n")
-            append("语句数: ${block.numStatements}\n")
-            append("执行次数: ${block.executionCount}\n")
-            append("状态: ${if (block.isCovered) "已覆盖" else "未覆盖"}")
+            append("✓ 覆盖率信息\n")
+            append("━━━━━━━━━━━━━━━━\n")
+            append("📍 位置: ${block.startLine}:${block.startCol} → ${block.endLine}:${block.endCol}\n")
+            append("📊 语句数: ${block.numStatements}\n")
+            append("🔄 执行次数: ${block.executionCount}\n")
+            append("✅ 状态: 已覆盖")
         }
     }
 }

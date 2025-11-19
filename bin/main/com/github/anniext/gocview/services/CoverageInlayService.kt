@@ -105,33 +105,68 @@ class CoverageInlayService(private val project: Project) {
         private val isCovered: Boolean
     ) : com.intellij.openapi.editor.EditorCustomElementRenderer {
         
-        private val text = " ✓ $executionCount"
+        private val text = if (executionCount > 999) {
+            " ✓ ${executionCount / 1000}k+"
+        } else {
+            " ✓ $executionCount"
+        }
         private val label = JLabel(text)
         
         override fun calcWidthInPixels(inlay: Inlay<*>): Int {
             val metrics = label.getFontMetrics(label.font)
-            return metrics.stringWidth(text) + 10
+            return metrics.stringWidth(text) + 16
         }
         
         override fun paint(inlay: Inlay<*>, g: Graphics, targetRegion: Rectangle, textAttributes: com.intellij.openapi.editor.markup.TextAttributes) {
+            val g2d = g as java.awt.Graphics2D
             val editor = inlay.editor
             val font = editor.colorsScheme.getFont(com.intellij.openapi.editor.colors.EditorFontType.PLAIN)
             
-            g.font = font.deriveFont(Font.ITALIC, font.size * 0.9f)
+            // 启用抗锯齿
+            g2d.setRenderingHint(
+                java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+            )
             
-            // 设置颜色
-            g.color = if (isCovered) {
-                JBColor(0x4CAF50, 0x81C784) // 绿色
-            } else {
-                JBColor(0xF44336, 0xE57373) // 红色
-            }
+            g2d.font = font.deriveFont(Font.BOLD, font.size * 0.85f)
+            
+            // 设置颜色（更柔和的绿色）
+            g2d.color = JBColor(
+                java.awt.Color(76, 175, 80, 180),    // 浅色主题：半透明绿色
+                java.awt.Color(129, 199, 132, 200)   // 深色主题：半透明浅绿色
+            )
+            
+            // 绘制圆角背景
+            val metrics = g2d.fontMetrics
+            val textWidth = metrics.stringWidth(text)
+            val padding = 6
+            val bgX = targetRegion.x + 3
+            val bgY = targetRegion.y + 1
+            val bgWidth = textWidth + padding * 2
+            val bgHeight = targetRegion.height - 2
+            
+            g2d.color = JBColor(
+                java.awt.Color(200, 250, 205, 60),   // 浅色主题：浅绿色背景
+                java.awt.Color(50, 120, 60, 40)      // 深色主题：深绿色背景
+            )
+            g2d.fillRoundRect(bgX, bgY, bgWidth, bgHeight, 4, 4)
+            
+            // 绘制边框
+            g2d.color = JBColor(
+                java.awt.Color(100, 200, 110, 100),  // 浅色主题：绿色边框
+                java.awt.Color(80, 180, 90, 80)      // 深色主题：绿色边框
+            )
+            g2d.drawRoundRect(bgX, bgY, bgWidth, bgHeight, 4, 4)
             
             // 绘制文本
-            val metrics = g.fontMetrics
-            val x = targetRegion.x + 5
-            val y = targetRegion.y + metrics.ascent
+            g2d.color = JBColor(
+                java.awt.Color(46, 125, 50),         // 浅色主题：深绿色文字
+                java.awt.Color(129, 199, 132)        // 深色主题：浅绿色文字
+            )
+            val x = bgX + padding
+            val y = targetRegion.y + metrics.ascent + 1
             
-            g.drawString(text, x, y)
+            g2d.drawString(text, x, y)
         }
     }
 }

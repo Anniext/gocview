@@ -49,6 +49,7 @@ class CoverageToolWindow(private val project: Project) {
         coverageTable = JBTable(tableModel).apply {
             setShowGrid(true)
             autoResizeMode = JTable.AUTO_RESIZE_ALL_COLUMNS
+            rowHeight = 28  // 增加行高
             
             // 设置列宽
             columnModel.getColumn(0).preferredWidth = 300 // 文件
@@ -57,8 +58,12 @@ class CoverageToolWindow(private val project: Project) {
             columnModel.getColumn(3).preferredWidth = 80  // 总语句数
             columnModel.getColumn(4).preferredWidth = 80  // 执行次数
             
-            // 设置覆盖率列的渲染器
+            // 设置所有列的渲染器
+            columnModel.getColumn(0).cellRenderer = FilePathRenderer()
             columnModel.getColumn(1).cellRenderer = CoveragePercentageRenderer()
+            columnModel.getColumn(2).cellRenderer = NumberRenderer()
+            columnModel.getColumn(3).cellRenderer = NumberRenderer()
+            columnModel.getColumn(4).cellRenderer = NumberRenderer()
             
             // 添加行选择监听器
             selectionModel.addListSelectionListener { event ->
@@ -254,10 +259,42 @@ class CoverageToolWindow(private val project: Project) {
     }
     
     /**
-     * 覆盖率百分比渲染器
-     * 根据覆盖率高低显示不同颜色
+     * 文件路径渲染器
      */
-    private class CoveragePercentageRenderer : DefaultTableCellRenderer() {
+    private class FilePathRenderer : DefaultTableCellRenderer() {
+        init {
+            horizontalAlignment = SwingConstants.LEFT
+        }
+        
+        override fun getTableCellRendererComponent(
+            table: JTable?,
+            value: Any?,
+            isSelected: Boolean,
+            hasFocus: Boolean,
+            row: Int,
+            column: Int
+        ): Component {
+            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
+            
+            if (value is String && value.contains("/")) {
+                // 只显示文件名，完整路径作为工具提示
+                val fileName = value.substringAfterLast("/")
+                component.text = "📄 $fileName"
+                component.toolTipText = value
+            }
+            
+            return component
+        }
+    }
+    
+    /**
+     * 数字渲染器
+     */
+    private class NumberRenderer : DefaultTableCellRenderer() {
+        init {
+            horizontalAlignment = SwingConstants.CENTER
+        }
+        
         override fun getTableCellRendererComponent(
             table: JTable?,
             value: Any?,
@@ -268,17 +305,71 @@ class CoverageToolWindow(private val project: Project) {
         ): Component {
             val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
             
+            if (!isSelected) {
+                component.background = JBColor.WHITE
+            }
+            
+            return component
+        }
+    }
+    
+    /**
+     * 覆盖率百分比渲染器
+     * 根据覆盖率高低显示不同颜色
+     */
+    private class CoveragePercentageRenderer : DefaultTableCellRenderer() {
+        init {
+            horizontalAlignment = SwingConstants.CENTER
+            isOpaque = true
+        }
+        
+        override fun getTableCellRendererComponent(
+            table: JTable?,
+            value: Any?,
+            isSelected: Boolean,
+            hasFocus: Boolean,
+            row: Int,
+            column: Int
+        ): Component {
+            val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
+            
             if (value is String && value.endsWith("%")) {
                 try {
                     val percentage = value.removeSuffix("%").toDouble()
                     
-                    // 根据覆盖率设置背景色
-                    component.background = when {
-                        percentage >= 80.0 -> JBColor(0xE8F5E9, 0x1B5E20) // 绿色
-                        percentage >= 50.0 -> JBColor(0xFFF9C4, 0xF57F17) // 黄色
-                        percentage > 0.0 -> JBColor(0xFFECB3, 0xE65100)   // 橙色
-                        else -> JBColor(0xFFCDD2, 0xB71C1C)                // 红色
+                    // 根据覆盖率设置背景色和前景色
+                    val (bgColor, fgColor, icon) = when {
+                        percentage >= 80.0 -> Triple(
+                            JBColor(java.awt.Color(200, 250, 205), java.awt.Color(50, 120, 60)),
+                            JBColor(java.awt.Color(27, 94, 32), java.awt.Color(200, 250, 205)),
+                            "✓"
+                        )
+                        percentage >= 50.0 -> Triple(
+                            JBColor(java.awt.Color(255, 249, 196), java.awt.Color(245, 127, 23)),
+                            JBColor(java.awt.Color(245, 127, 23), java.awt.Color(255, 249, 196)),
+                            "◐"
+                        )
+                        percentage > 0.0 -> Triple(
+                            JBColor(java.awt.Color(255, 236, 179), java.awt.Color(230, 81, 0)),
+                            JBColor(java.awt.Color(230, 81, 0), java.awt.Color(255, 236, 179)),
+                            "◔"
+                        )
+                        else -> Triple(
+                            JBColor(java.awt.Color(255, 205, 210), java.awt.Color(183, 28, 28)),
+                            JBColor(java.awt.Color(183, 28, 28), java.awt.Color(255, 205, 210)),
+                            "✗"
+                        )
                     }
+                    
+                    if (!isSelected) {
+                        component.background = bgColor
+                        component.foreground = fgColor
+                    }
+                    
+                    component.text = "$icon $value"
+                    component.font = component.font.deriveFont(java.awt.Font.BOLD)
+                    component.border = BorderFactory.createEmptyBorder(4, 8, 4, 8)
+                    
                 } catch (e: NumberFormatException) {
                     // 忽略解析错误
                 }
