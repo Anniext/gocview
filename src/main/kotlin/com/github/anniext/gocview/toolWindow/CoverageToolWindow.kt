@@ -30,6 +30,7 @@ class CoverageToolWindow(private val project: Project) {
     private val mainPanel = JBPanel<JBPanel<*>>(BorderLayout())
     private val statusLabel = JBLabel("等待 goc server 启动...")
     private val refreshButton = JButton("刷新覆盖率")
+    private val clearButton = JButton("清除高亮")
     private val coverageTable: JBTable
     private val tableModel: DefaultTableModel
     private val detailPanel = CoverageDetailPanel()
@@ -39,7 +40,7 @@ class CoverageToolWindow(private val project: Project) {
     
     companion object {
         // 延迟刷新时间（毫秒）
-        private const val REFRESH_DELAY_MS = 1000L
+        private const val REFRESH_DELAY_MS = 3000L
     }
     
     init {
@@ -80,13 +81,55 @@ class CoverageToolWindow(private val project: Project) {
                     }
                 }
             }
+            
+            // 添加双击事件，跳转到文件
+            addMouseListener(object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    if (e.clickCount == 2) {
+                        val row = rowAtPoint(e.point)
+                        if (row >= 0 && row < currentFileCoverages.size) {
+                            navigateToFile(currentFileCoverages[row])
+                        }
+                    }
+                }
+                
+                override fun mouseEntered(e: java.awt.event.MouseEvent) {
+                    cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+                }
+                
+                override fun mouseExited(e: java.awt.event.MouseEvent) {
+                    cursor = java.awt.Cursor.getDefaultCursor()
+                }
+            })
+            
+            // 添加键盘快捷键支持（Enter 键跳转）
+            addKeyListener(object : java.awt.event.KeyAdapter() {
+                override fun keyPressed(e: java.awt.event.KeyEvent) {
+                    if (e.keyCode == java.awt.event.KeyEvent.VK_ENTER) {
+                        val row = selectedRow
+                        if (row >= 0 && row < currentFileCoverages.size) {
+                            navigateToFile(currentFileCoverages[row])
+                        }
+                    }
+                }
+            })
+        }
+        
+        // 提示标签
+        val hintLabel = JBLabel("💡 双击文件跳转到代码").apply {
+            foreground = JBColor.GRAY
+            font = font.deriveFont(java.awt.Font.ITALIC, 11f)
         }
         
         // 顶部面板
         val topPanel = JBPanel<JBPanel<*>>().apply {
             layout = BoxLayout(this, BoxLayout.X_AXIS)
             add(statusLabel)
+            add(Box.createHorizontalStrut(10))
+            add(hintLabel)
             add(Box.createHorizontalGlue())
+            add(clearButton)
+            add(Box.createHorizontalStrut(5))
             add(refreshButton)
             border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
         }
@@ -96,6 +139,12 @@ class CoverageToolWindow(private val project: Project) {
             refreshCoverageData()
         }
         refreshButton.isEnabled = false
+        
+        // 清除按钮事件
+        clearButton.addActionListener {
+            clearCoverageHighlights()
+        }
+        clearButton.toolTipText = "清除编辑器中的覆盖率高亮"
         
         // 创建分割面板
         val splitPane = JSplitPane(
@@ -160,6 +209,28 @@ class CoverageToolWindow(private val project: Project) {
                 ApplicationManager.getApplication().invokeLater {
                     statusLabel.text = "Goc Server: $currentServerUrl"
                 }
+            }
+        }
+    }
+    
+    /**
+     * 清除覆盖率高亮
+     */
+    private fun clearCoverageHighlights() {
+        ApplicationManager.getApplication().invokeLater {
+            try {
+                editorManager.clearAllCoverage()
+                statusLabel.text = "已清除所有覆盖率高亮"
+                logger.info("Coverage highlights cleared manually")
+                
+                // 清空表格
+                tableModel.rowCount = 0
+                currentFileCoverages = emptyList()
+                detailPanel.clear()
+                
+            } catch (e: Exception) {
+                logger.error("Failed to clear coverage highlights", e)
+                statusLabel.text = "清除高亮失败: ${e.message}"
             }
         }
     }
@@ -259,6 +330,39 @@ class CoverageToolWindow(private val project: Project) {
                     refreshButton.isEnabled = true
                 }
             }
+        }
+    }
+    
+    /**
+     * 跳转到文件
+     */
+    private fun navigateToFile(fileCoverage: FileCoverage) {
+        val filePath = fileCoverage.filePath
+        
+        // 查找文件
+        val virtualFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(filePath)
+            ?: com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath("${project.basePath}/$filePath")
+        
+        if (virtualFile != null) {
+            // 找到第一个未覆盖的代码块，如果没有则跳转到第一个覆盖的代码块
+            val targetBlock = fileCoverage.blocks.firstOrNull { !it.isCovered }
+                ?: fileCoverage.blocks.firstOrNull()
+            
+            if (targetBlock != null) {
+                // 打开文件并跳转到指定行
+                val line = (targetBlock.startLine - 1).coerceAtLeast(0)
+                val column = (targetBlock.startCol - 1).coerceAtLeast(0)
+                
+                val descriptor = com.intellij.openapi.fileEditor.OpenFileDescriptor(project, virtualFile, line, column)
+                com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+            } else {
+                // 如果没有代码块，就打开文件的第一行
+                val descriptor = com.intellij.openapi.fileEditor.OpenFileDescriptor(project, virtualFile, 0, 0)
+                com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+            }
+        } else {
+            logger.warn("File not found: $filePath")
+            statusLabel.text = "文件未找到: $filePath"
         }
     }
     

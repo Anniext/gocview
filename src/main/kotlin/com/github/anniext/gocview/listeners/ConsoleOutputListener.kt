@@ -1,5 +1,6 @@
 package com.github.anniext.gocview.listeners
 
+import com.github.anniext.gocview.services.CoverageEditorManager
 import com.github.anniext.gocview.services.GocCoverageService
 import com.intellij.execution.process.ProcessAdapter
 import com.intellij.execution.process.ProcessEvent
@@ -21,6 +22,7 @@ class ConsoleOutputListener(
     
     private val logger = thisLogger()
     private val coverageService = GocCoverageService.getInstance(project)
+    private var gocServerDetected = false
     
     override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
         val text = event.text
@@ -29,6 +31,7 @@ class ConsoleOutputListener(
         val serverUrl = coverageService.extractGocServerUrl(text)
         if (serverUrl != null) {
             logger.info("Detected goc server: $serverUrl")
+            gocServerDetected = true
             
             // 自动打开覆盖率工具窗口
             ApplicationManager.getApplication().invokeLater {
@@ -36,6 +39,23 @@ class ConsoleOutputListener(
             }
             
             onGocServerDetected(serverUrl)
+        }
+    }
+    
+    override fun processTerminated(event: ProcessEvent) {
+        logger.info("Process terminated, exit code: ${event.exitCode}")
+        
+        // 如果检测到了 goc server，则清除覆盖率高亮
+        if (gocServerDetected) {
+            ApplicationManager.getApplication().invokeLater {
+                try {
+                    val editorManager = CoverageEditorManager.getInstance(project)
+                    editorManager.clearAllCoverage()
+                    logger.info("Coverage highlights cleared after goc process termination")
+                } catch (e: Exception) {
+                    logger.error("Failed to clear coverage highlights", e)
+                }
+            }
         }
     }
     

@@ -27,8 +27,14 @@ import javax.swing.table.DefaultTableModel
 class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
     
     private val titleLabel = JBLabel("详细覆盖率信息").apply {
-        font = font.deriveFont(Font.BOLD, 14f)
-        border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        font = font.deriveFont(Font.BOLD, 13f)
+        border = BorderFactory.createEmptyBorder(5, 5, 2, 5)
+    }
+    
+    private val hintLabel = JBLabel("💡 双击代码块跳转到具体位置").apply {
+        foreground = JBColor.GRAY
+        font = font.deriveFont(Font.ITALIC, 11f)
+        border = BorderFactory.createEmptyBorder(0, 5, 5, 5)
     }
     
     private val detailTable: JBTable
@@ -76,10 +82,37 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
                         }
                     }
                 }
+                
+                override fun mouseEntered(e: MouseEvent) {
+                    cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+                }
+                
+                override fun mouseExited(e: MouseEvent) {
+                    cursor = java.awt.Cursor.getDefaultCursor()
+                }
+            })
+            
+            // 添加键盘快捷键支持（Enter 键跳转）
+            addKeyListener(object : java.awt.event.KeyAdapter() {
+                override fun keyPressed(e: java.awt.event.KeyEvent) {
+                    if (e.keyCode == java.awt.event.KeyEvent.VK_ENTER) {
+                        val row = selectedRow
+                        if (row >= 0 && row < currentBlocks.size) {
+                            navigateToCode(currentBlocks[row])
+                        }
+                    }
+                }
             })
         }
         
-        add(titleLabel, BorderLayout.NORTH)
+        // 顶部面板（标题 + 提示）
+        val topPanel = JBPanel<JBPanel<*>>().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            add(titleLabel)
+            add(hintLabel)
+        }
+        
+        add(topPanel, BorderLayout.NORTH)
         add(JBScrollPane(detailTable), BorderLayout.CENTER)
     }
     
@@ -91,7 +124,10 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
         currentFilePath = filePath
         currentBlocks = blocks.sortedBy { it.startLine }
         
-        titleLabel.text = "文件: $filePath (${blocks.size} 个代码块) - 双击跳转到代码"
+        // 只显示文件名，完整路径作为工具提示
+        val fileName = filePath.substringAfterLast("/")
+        titleLabel.text = "📄 $fileName (${blocks.size} 个代码块)"
+        titleLabel.toolTipText = filePath
         
         // 清空现有数据
         tableModel.rowCount = 0
@@ -134,6 +170,27 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
             
             val descriptor = OpenFileDescriptor(project, virtualFile, line, column)
             FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+            
+            // 更新提示信息
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                val fileName = filePath.substringAfterLast("/")
+                titleLabel.text = "📄 $fileName (${currentBlocks.size} 个代码块) - 已跳转到 ${block.startLine}:${block.startCol}"
+                
+                // 3 秒后恢复原始标题
+                Timer(3000) {
+                    com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                        titleLabel.text = "📄 $fileName (${currentBlocks.size} 个代码块)"
+                    }
+                }.apply {
+                    isRepeats = false
+                    start()
+                }
+            }
+        } else {
+            // 文件未找到提示
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                titleLabel.text = "❌ 文件未找到: $filePath"
+            }
         }
     }
     

@@ -1,9 +1,11 @@
 package com.github.anniext.gocview.listeners
 
+import com.github.anniext.gocview.services.CoverageEditorManager
 import com.github.anniext.gocview.toolWindow.MyToolWindowFactory
 import com.intellij.execution.ExecutionListener
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.runners.ExecutionEnvironment
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 
@@ -33,6 +35,21 @@ class RunConfigurationListener(private val project: Project) : ExecutionListener
             logger.info("Console output listener attached")
         } else {
             logger.warn("Coverage tool window not found")
+        }
+    }
+    
+    override fun processTerminated(executorId: String, env: ExecutionEnvironment, handler: ProcessHandler, exitCode: Int) {
+        logger.info("Process terminated: ${env.runProfile.name}, exit code: $exitCode")
+        
+        // 清除所有覆盖率高亮
+        ApplicationManager.getApplication().invokeLater {
+            try {
+                val editorManager = CoverageEditorManager.getInstance(project)
+                editorManager.clearAllCoverage()
+                logger.info("Coverage highlights cleared after process termination")
+            } catch (e: Exception) {
+                logger.error("Failed to clear coverage highlights", e)
+            }
         }
     }
 }
