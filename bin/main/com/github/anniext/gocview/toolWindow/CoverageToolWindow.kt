@@ -121,16 +121,27 @@ class CoverageToolWindow(private val project: Project) {
             font = font.deriveFont(java.awt.Font.ITALIC, 11f)
         }
         
-        // 顶部面板
-        val topPanel = JBPanel<JBPanel<*>>().apply {
+        // 状态信息面板（第一行）
+        val statusPanel = JBPanel<JBPanel<*>>().apply {
+            layout = BorderLayout()
+            add(statusLabel, BorderLayout.WEST)
+            add(hintLabel, BorderLayout.CENTER)
+        }
+        
+        // 按钮面板（第二行）
+        val buttonPanel = JBPanel<JBPanel<*>>().apply {
             layout = BoxLayout(this, BoxLayout.X_AXIS)
-            add(statusLabel)
-            add(Box.createHorizontalStrut(10))
-            add(hintLabel)
             add(Box.createHorizontalGlue())
             add(clearButton)
             add(Box.createHorizontalStrut(5))
             add(refreshButton)
+        }
+        
+        // 顶部面板（垂直布局）
+        val topPanel = JBPanel<JBPanel<*>>().apply {
+            layout = BorderLayout()
+            add(statusPanel, BorderLayout.NORTH)
+            add(buttonPanel, BorderLayout.SOUTH)
             border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
         }
         
