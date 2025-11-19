@@ -30,8 +30,7 @@ class GocBuildRunState(
         
         // 获取 goc 可执行文件路径
         val gocPath = when {
-            configuration.gocExecutablePath.isEmpty() -> "goc"
-            configuration.gocExecutablePath == "<无 SDK>" -> "goc"
+            configuration.gocExecutablePath.isEmpty() -> "<无SDK>"
             else -> configuration.gocExecutablePath
         }
         
