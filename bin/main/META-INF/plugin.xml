@@ -5,11 +5,13 @@
     <vendor>anniext</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends config-file="go-support.xml">org.jetbrains.plugins.go</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow factoryClass="com.github.anniext.gocview.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.anniext.gocview.startup.MyProjectActivity" />
+        <notificationGroup id="Gocview Notifications" displayType="BALLOON"/>
     </extensions>
 </idea-plugin>
