@@ -22,8 +22,9 @@ class CoverageEditorManager(private val project: Project) {
     private val logger = thisLogger()
     private val highlightService = CoverageHighlightService.getInstance(project)
     private val inlayService = CoverageInlayService.getInstance(project)
+    private val pathResolver = GoModulePathResolver.getInstance(project)
     
-    // 存储每个文件的覆盖率数据
+    // 存储每个文件的覆盖率数据（key 是模块路径）
     private val fileCoverageData = mutableMapOf<String, List<CoverageBlock>>()
     
     companion object {
@@ -108,16 +109,24 @@ class CoverageEditorManager(private val project: Project) {
     
     /**
      * 查找文件的覆盖率数据
-     * 支持模糊匹配（因为 goc 返回的路径可能是完整路径）
+     * 支持模块路径匹配
      */
     private fun findCoverageBlocks(filePath: String): List<CoverageBlock> {
-        // 精确匹配
+        // 1. 精确匹配文件路径
         fileCoverageData[filePath]?.let { return it }
         
-        // 模糊匹配：查找以文件路径结尾的键
+        // 2. 模糊匹配：查找以文件路径结尾的键
         val fileName = filePath.substringAfterLast('/')
-        fileCoverageData.entries.forEach { (key, blocks) ->
-            if (key.endsWith(filePath) || key.endsWith(fileName)) {
+        fileCoverageData.entries.forEach { (modulePath, blocks) ->
+            if (modulePath.endsWith(filePath) || modulePath.endsWith(fileName)) {
+                return blocks
+            }
+        }
+        
+        // 3. 反向匹配：检查当前文件是否匹配某个模块路径
+        fileCoverageData.entries.forEach { (modulePath, blocks) ->
+            val resolvedFile = pathResolver.resolveModulePath(modulePath)
+            if (resolvedFile != null && resolvedFile.path == filePath) {
                 return blocks
             }
         }

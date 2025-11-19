@@ -157,11 +157,11 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
      */
     private fun navigateToCode(block: CoverageBlock) {
         val project = currentProject ?: return
-        val filePath = currentFilePath ?: return
+        val modulePath = currentFilePath ?: return
         
-        // 查找文件
-        val virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath)
-            ?: LocalFileSystem.getInstance().findFileByPath("${project.basePath}/$filePath")
+        // 使用路径解析器将模块路径转换为实际文件路径
+        val pathResolver = com.github.anniext.gocview.services.GoModulePathResolver.getInstance(project)
+        val virtualFile = pathResolver.resolveModulePath(modulePath)
         
         if (virtualFile != null) {
             // 打开文件并跳转到指定行
@@ -173,7 +173,7 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
             
             // 更新提示信息
             com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
-                val fileName = filePath.substringAfterLast("/")
+                val fileName = modulePath.substringAfterLast("/")
                 titleLabel.text = "📄 $fileName (${currentBlocks.size} 个代码块) - 已跳转到 ${block.startLine}:${block.startCol}"
                 
                 // 3 秒后恢复原始标题
@@ -189,7 +189,8 @@ class CoverageDetailPanel : JBPanel<JBPanel<*>>(BorderLayout()) {
         } else {
             // 文件未找到提示
             com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
-                titleLabel.text = "❌ 文件未找到: $filePath"
+                titleLabel.text = "❌ 文件未找到: $modulePath (模块路径无法解析)"
+                titleLabel.toolTipText = "尝试的模块路径: $modulePath"
             }
         }
     }

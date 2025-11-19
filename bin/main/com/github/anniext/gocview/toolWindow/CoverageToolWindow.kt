@@ -337,11 +337,11 @@ class CoverageToolWindow(private val project: Project) {
      * 跳转到文件
      */
     private fun navigateToFile(fileCoverage: FileCoverage) {
-        val filePath = fileCoverage.filePath
+        val modulePath = fileCoverage.filePath
         
-        // 查找文件
-        val virtualFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(filePath)
-            ?: com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath("${project.basePath}/$filePath")
+        // 使用路径解析器将模块路径转换为实际文件路径
+        val pathResolver = com.github.anniext.gocview.services.GoModulePathResolver.getInstance(project)
+        val virtualFile = pathResolver.resolveModulePath(modulePath)
         
         if (virtualFile != null) {
             // 找到第一个未覆盖的代码块，如果没有则跳转到第一个覆盖的代码块
@@ -361,8 +361,8 @@ class CoverageToolWindow(private val project: Project) {
                 com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
             }
         } else {
-            logger.warn("File not found: $filePath")
-            statusLabel.text = "文件未找到: $filePath"
+            logger.warn("File not found for module path: $modulePath")
+            statusLabel.text = "文件未找到: $modulePath (模块路径无法解析)"
         }
     }
     
