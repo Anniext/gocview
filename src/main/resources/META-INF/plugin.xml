@@ -10,7 +10,11 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.anniext.gocview.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
+        <toolWindow 
+            factoryClass="com.github.anniext.gocview.toolWindow.MyToolWindowFactory" 
+            id="Goc Coverage"
+            anchor="bottom"
+            icon="AllIcons.Toolwindows.ToolWindowCoverage"/>
         <postStartupActivity implementation="com.github.anniext.gocview.startup.MyProjectActivity" />
         <notificationGroup id="Gocview Notifications" displayType="BALLOON"/>
     </extensions>

@@ -1,45 +1,31 @@
 package com.github.anniext.gocview.toolWindow
 
-import com.intellij.openapi.components.service
-import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.ui.components.JBLabel
-import com.intellij.ui.components.JBPanel
 import com.intellij.ui.content.ContentFactory
-import com.github.anniext.gocview.MyBundle
-import com.github.anniext.gocview.services.MyProjectService
-import javax.swing.JButton
 
-
+/**
+ * 工具窗口工厂
+ */
 class MyToolWindowFactory : ToolWindowFactory {
 
-    init {
-        thisLogger().warn("Don't forget to remove all non-needed sample code files with their corresponding registration entries in `plugin.xml`.")
-    }
-
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val myToolWindow = MyToolWindow(toolWindow)
-        val content = ContentFactory.getInstance().createContent(myToolWindow.getContent(), null, false)
+        val coverageToolWindow = CoverageToolWindow(project)
+        val content = ContentFactory.getInstance().createContent(
+            coverageToolWindow.getContent(), 
+            "覆盖率", 
+            false
+        )
         toolWindow.contentManager.addContent(content)
+        
+        // 将工具窗口实例保存到项目服务中，以便其他组件访问
+        project.putUserData(COVERAGE_TOOL_WINDOW_KEY, coverageToolWindow)
     }
 
     override fun shouldBeAvailable(project: Project) = true
-
-    class MyToolWindow(toolWindow: ToolWindow) {
-
-        private val service = toolWindow.project.service<MyProjectService>()
-
-        fun getContent() = JBPanel<JBPanel<*>>().apply {
-            val label = JBLabel(MyBundle.message("randomLabel", "?"))
-
-            add(label)
-            add(JButton(MyBundle.message("shuffle")).apply {
-                addActionListener {
-                    label.text = MyBundle.message("randomLabel", service.getRandomNumber())
-                }
-            })
-        }
+    
+    companion object {
+        val COVERAGE_TOOL_WINDOW_KEY = com.intellij.openapi.util.Key.create<CoverageToolWindow>("gocview.coverage.toolwindow")
     }
 }

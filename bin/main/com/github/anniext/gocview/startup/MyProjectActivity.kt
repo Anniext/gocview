@@ -1,7 +1,8 @@
 package com.github.anniext.gocview.startup
 
+import com.github.anniext.gocview.listeners.RunConfigurationListener
+import com.intellij.execution.ExecutionManager
 import com.intellij.ide.plugins.PluginManagerCore
-import com.intellij.notification.Notification
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
@@ -12,7 +13,7 @@ import com.intellij.openapi.startup.ProjectActivity
 /**
  * 项目启动活动
  * 
- * 检查 Go 插件是否已安装，如果未安装则提示用户
+ * 检查 Go 插件是否已安装，注册运行配置监听器
  */
 class MyProjectActivity : ProjectActivity {
 
@@ -22,6 +23,7 @@ class MyProjectActivity : ProjectActivity {
 
     override suspend fun execute(project: Project) {
         checkGoPluginInstalled(project)
+        registerRunConfigurationListener(project)
     }
     
     private fun checkGoPluginInstalled(project: Project) {
@@ -43,5 +45,16 @@ class MyProjectActivity : ProjectActivity {
             )
         
         Notifications.Bus.notify(notification, project)
+    }
+    
+    /**
+     * 注册运行配置监听器
+     */
+    private fun registerRunConfigurationListener(project: Project) {
+        val connection = project.messageBus.connect()
+        connection.subscribe(
+            ExecutionManager.EXECUTION_TOPIC,
+            RunConfigurationListener(project)
+        )
     }
 }
