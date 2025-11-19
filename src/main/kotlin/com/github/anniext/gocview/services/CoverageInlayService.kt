@@ -107,8 +107,10 @@ class CoverageInlayService(private val project: Project) {
         
         private val text = if (executionCount > 999) {
             " ✓ ${executionCount / 1000}k+"
-        } else {
+        } else if (executionCount > 0) {
             " ✓ $executionCount"
+        } else {
+            " ✗ 0"
         }
         private val label = JLabel(text)
         
