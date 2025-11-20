@@ -1,0 +1,7 @@
+<idea-plugin>
+    <!-- Go 插件支持配置 -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 独立的 Goc 构建配置类型 -->
+        <configurationType implementation="com.github.anniext.gocview.runconfig.GocBuildConfigurationType"/>
+    </extensions>
+</idea-plugin>

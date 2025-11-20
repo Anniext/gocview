@@ -19,6 +19,15 @@ kotlin {
     jvmToolchain(21)
 }
 
+// 配置源集，包含 Go 支持代码
+sourceSets {
+    main {
+        kotlin {
+            srcDirs("src/main/kotlin", "src/main/kotlin-go-support")
+        }
+    }
+}
+
 // Configure project's dependencies
 repositories {
     mavenCentral()
